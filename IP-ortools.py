@@ -39,9 +39,51 @@ def read_input_from_stdin():
 
 ans_route = list()
 
+def check_stock(cur_q, q):
+    for i in range(len(q)):
+        if cur_q[i] < q[i]:
+            return False
+    return True
+
+def greedy_initial_solution(N, M, Q, d, q):
+    global ans_route
+    used = [False] * (M + 1)
+    cur_q = [0] * N
+    route = []
+    curr_node = 0
+    total_dist = 0
+
+    while check_stock(cur_q, q) == False:
+        next_node = -1
+        min_dist = float('inf')
+        for j in range(1, M + 1):
+            if not used[j]:
+                if d[curr_node][j] < min_dist:
+                    min_dist = d[curr_node][j]
+                    next_node = j
+        if next_node == -1:
+            break
+        total_dist += min_dist
+        route.append(next_node)
+        used[next_node] = True
+        for i in range(N):
+            cur_q[i] += Q[i][next_node - 1]
+        curr_node = next_node
+
+    total_dist += d[curr_node][0]
+    route.append(0)
+    # print("route length:", len(route) - 1)
+    # print("route:", ' '.join(map(str, route[:-1])))
+    # print("total distance:", total_dist)
+    return route
+
 def MIP_Solver(N, M, Q, d, q):
     global ans_route
-    solver = pywraplp.Solver.CreateSolver('SCIP')
+    try:
+        solver = pywraplp.Solver.CreateSolver('SCIP')
+    except:
+        print("judge suck")
+    # solver = pywraplp.Solver.CreateSolver('CBC')
 
     # desicion variables
     X = list()
@@ -59,6 +101,11 @@ def MIP_Solver(N, M, Q, d, q):
     for i in range(M + 1):
         U.append(solver.IntVar(1, M, "u[{}]".format(i)))
 
+    greedy_ans = greedy_initial_solution(N, M, Q, d, q)
+    for i in range(M + 1):
+        if i in greedy_ans:
+            solver.Add(Y[i] == 1) 
+
     # constraints
     for i in range(1, N + 1):
         solver.Add(solver.Sum(Q[i - 1][j - 1] * Y[j] for j in range(1, M + 1)) >= q[i - 1])
@@ -70,7 +117,7 @@ def MIP_Solver(N, M, Q, d, q):
     solver.Add(solver.Sum(X[0][j] for j in range(1, M + 1)) == 1)
     solver.Add(solver.Sum(X[j][0] for j in range(1, M + 1)) == 1)
 
-    for i in range(1, M + 1):
+    for i in range(0, M + 1):
         solver.Add(X[i][i] == 0)
 
     for i in range(1, M + 1):
@@ -85,8 +132,10 @@ def MIP_Solver(N, M, Q, d, q):
             obj += d[i][j] * X[i][j]
 
     solver.Minimize(obj)
+    solver.SetTimeLimit(500)
     status = solver.Solve()
-    if status == pywraplp.Solver.OPTIMAL:
+
+    if status == pywraplp.Solver.OPTIMAL or status == pywraplp.Solver.FEASIBLE:
         next_node = [-1] * (M + 1)
         for i in range(0, M + 1):
             for j in range(0, M + 1):
@@ -96,16 +145,18 @@ def MIP_Solver(N, M, Q, d, q):
         route = []
         curr = 0
         while True:
-            route.append(curr)
             curr = next_node[curr]
+            route.append(curr)
             if curr == 0:
                 break
 
         ans_route = route
         # print("answer =", int(solver.Objective().Value()))
+    else:
+        ans_route = greedy_ans
 
     print(len(ans_route) - 1)
-    for i in range(1, len(ans_route)):
+    for i in range(0, len(ans_route) - 1):
         print(ans_route[i], end=' ')
         
 
