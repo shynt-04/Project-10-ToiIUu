@@ -1,9 +1,12 @@
+// tabu search
 #include <iostream>
 #include <vector>
 #include <algorithm>
 #include <cstring>
 #include <cmath>
 #include <queue>
+#include <random>
+#include <limits>
 
 #define MOD 1000000007
 #define Task "annotshy"
@@ -25,6 +28,9 @@ int cur_ans, ans[maxn], best_ans_tabu[maxn];
 int tabu[maxn][maxn];
 queue<pair<int, int> > Q_tabu;
 int MX_QUEUE = 7;
+
+random_device rd;
+mt19937 rng(rd());
 
 bool check_stock() {
     for (int i = 1; i <= n; ++ i) {
@@ -69,8 +75,8 @@ bool try_swap_shelves() {
     }
 
     for (int t = 1; t <= 20000; ++t) {
-        int i = rand() % ans[0] + 1;
-        int j = rand() % ans[0] + 1;
+        int i = rng() % ans[0] + 1;
+        int j = rng() % ans[0] + 1;
         if (i == j) continue;
         if (i > j) swap(i, j);
         int a = ans[i];
@@ -181,32 +187,20 @@ void local_search_with_tabu() {
     MX_QUEUE = max(7LL, ans[0] / 2);
     int cnt = 0;
 
-    while (cnt < 5000) {
+    while (cnt < 10000) {
         ++ cnt;
-        if (try_swap_shelves()) {
-            if (cur_ans < best_ans) {
-                best_ans = cur_ans;
-                for (int i = 0; i <= ans[0]; ++ i) {
-                    best_ans_tabu[i] = ans[i];
-                }
-            }
-            continue;
+        int op = rng() % 100;
+        if (op < 50) {
+            if (!try_swap_shelves()) continue;
+        } else if (op < 80) {
+            if (!try_remove_shelf()) continue;
+        } else {
+            if (!try_add_shelf()) continue;
         }
-        if (try_remove_shelf()) {
-            if (cur_ans < best_ans) {
-                best_ans = cur_ans;
-                for (int i = 0; i <= ans[0]; ++ i) {
-                    best_ans_tabu[i] = ans[i];
-                }
-            }
-            continue;
-        }
-        if (try_add_shelf()) {
-            if (cur_ans < best_ans) {
-                best_ans = cur_ans;
-                for (int i = 0; i <= ans[0]; ++ i) {
-                    best_ans_tabu[i] = ans[i];
-                }
+        if (cur_ans < best_ans) {
+            best_ans = cur_ans;
+            for (int i = 0; i <= ans[0]; ++ i) {
+                best_ans_tabu[i] = ans[i];
             }
         }
         if (cnt % 200 == 0) {
@@ -239,7 +233,7 @@ void solve(int Test) {
     for (int i = 1; i <= best_ans_tabu[0]; ++ i) {
         cout << best_ans_tabu[i] << " ";
     }
-    cout << "\n" << best_ans << "\n";
+    // cout << "\n" << best_ans << "\n";
 }
 
 signed main() {
