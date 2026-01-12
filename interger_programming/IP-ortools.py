@@ -85,6 +85,8 @@ def MIP_Solver(N, M, Q, d, q):
         print("judge suck")
     # solver = pywraplp.Solver.CreateSolver('CBC')
 
+    solver.SetTimeLimit(10000)
+
     # desicion variables
     X = list()
     for i in range(M + 1):
@@ -134,7 +136,7 @@ def MIP_Solver(N, M, Q, d, q):
     solver.Minimize(obj)
     status = solver.Solve()
 
-    if status == pywraplp.Solver.OPTIMAL:
+    if status == pywraplp.Solver.OPTIMAL or status == pywraplp.Solver.FEASIBLE:
         next_node = [-1] * (M + 1)
         for i in range(0, M + 1):
             for j in range(0, M + 1):

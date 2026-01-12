@@ -7,6 +7,7 @@
 #include <queue>
 #include <random>
 #include <limits>
+#include <set>
 
 #define MOD 1000000007
 #define Task "annotshy"
@@ -25,9 +26,10 @@ int q[maxn], cur_q[maxn];
 int best_ans = 1e18, time_cnt = 0, cMin = 1e18;
 int vis[maxn];
 int cur_ans, ans[maxn], best_ans_tabu[maxn];
-int tabu[maxn][maxn];
-queue<pair<int, int> > Q_tabu;
+set<pair<int,int>> tabu_set;
+queue<pair<int, int>> Q_tabu;
 int MX_QUEUE = 7;
+int no_improve_cnt = 0;
 
 random_device rd;
 mt19937 rng(rd());
@@ -61,8 +63,6 @@ void greedy() {
     best_ans = total_dis;
 }
 
-// local search algorithm
-// tabu search 
 bool try_swap_shelves() {
     int best_new_dis = 1e18;
     int best_i = -1, best_j = -1;
@@ -70,11 +70,13 @@ bool try_swap_shelves() {
 
     while (!Q_tabu.empty() && Q_tabu.size() > MX_QUEUE) {
         auto p = Q_tabu.front();
-        tabu[p.F][p.S] = 0;
+        tabu_set.erase({p.F, p.S});
         Q_tabu.pop();
     }
 
-    for (int t = 1; t <= 20000; ++t) {
+    int sample_size = min(50000LL, ans[0] * ans[0]);
+    
+    for (int t = 1; t <= sample_size; ++t) {
         int i = rng() % ans[0] + 1;
         int j = rng() % ans[0] + 1;
         if (i == j) continue;
@@ -97,7 +99,7 @@ bool try_swap_shelves() {
             new_dis += d[u][b] + d[b][mid1] + d[mid2][a] + d[a][v];
         }
 
-        bool is_tabu = tabu[a][b];
+        bool is_tabu = tabu_set.count({a, b}) > 0;
 
         if (is_tabu && new_dis >= best_ans) continue;
 
@@ -115,13 +117,16 @@ bool try_swap_shelves() {
     swap(ans[best_i], ans[best_j]);
     cur_ans = best_new_dis;
 
-    tabu[best_b][best_a] = 1;
+    tabu_set.insert({best_b, best_a});
     Q_tabu.push({best_b, best_a});
 
     return 1;
 }
 
 bool try_remove_shelf() {
+    int best_new_dis = 1e18;
+    int best_i = -1;
+    
     for (int i = 1; i <= ans[0]; ++ i) {
         int new_dis = cur_ans;
         int good_rem = 1;
@@ -136,47 +141,79 @@ bool try_remove_shelf() {
         int v = (i == ans[0]) ? 0 : ans[i + 1];
         new_dis -= d[u][ans[i]] + d[ans[i]][v];
         new_dis += d[u][v];
-        if (new_dis < cur_ans) {
-            for (int j = 1; j <= n; ++ j) {
-                cur_q[j] -= Q[j][ans[i]];
-            }
-            vis[ans[i]] = 0;
-            for (int j = i; j < ans[0]; ++ j) {
-                ans[j] = ans[j + 1];
-            }
-            -- ans[0];
-            cur_ans = new_dis;
-            return 1;
+        if (new_dis < best_new_dis) {
+            best_new_dis = new_dis;
+            best_i = i;
         }
     }
-    return 0;
+    
+    if (best_i == -1) return 0;
+    
+    for (int j = 1; j <= n; ++ j) {
+        cur_q[j] -= Q[j][ans[best_i]];
+    }
+    vis[ans[best_i]] = 0;
+    for (int j = best_i; j < ans[0]; ++ j) {
+        ans[j] = ans[j + 1];
+    }
+    -- ans[0];
+    cur_ans = best_new_dis;
+    return 1;
 }
 
 bool try_add_shelf() {
-    for (int i = 1; i <= ans[0]; ++ i) {
+    int best_new_dis = 1e18;
+    int best_i = -1;
+    int best_shelf = -1;
+    
+    for (int i = 1; i <= ans[0] + 1; ++ i) {
         for (int shelf = 1; shelf <= m; ++ shelf) {
             if (vis[shelf]) continue;
             int new_dis = cur_ans;
             int u = (i == 1) ? 0 : ans[i - 1];
-            int v = ans[i];
+            int v = (i > ans[0]) ? 0 : ans[i];
             new_dis -= d[u][v];
             new_dis += d[u][shelf] + d[shelf][v];
-            if (new_dis < cur_ans) {
-                vis[shelf] = 1;
-                for (int j = 1; j <= n; ++ j) {
-                    cur_q[j] += Q[j][shelf];
-                }
-                for (int j = ans[0] + 1; j > i; -- j) {
-                    ans[j] = ans[j - 1];
-                }
-                ans[i] = shelf;
-                ++ ans[0];
-                cur_ans = new_dis;
-                return 1;
+            if (new_dis < best_new_dis) {
+                best_new_dis = new_dis;
+                best_i = i;
+                best_shelf = shelf;
             }
         }
-    } 
-    return 0;
+    }
+    
+    if (best_i == -1) return 0;
+    
+    vis[best_shelf] = 1;
+    for (int j = 1; j <= n; ++ j) {
+        cur_q[j] += Q[j][best_shelf];
+    }
+    for (int j = ans[0] + 1; j > best_i; -- j) {
+        ans[j] = ans[j - 1];
+    }
+    ans[best_i] = best_shelf;
+    ++ ans[0];
+    cur_ans = best_new_dis;
+    return 1;
+}
+
+void diversify() {
+    int num_random_swaps = ans[0] / 4;
+    for (int k = 0; k < num_random_swaps; ++k) {
+        if (ans[0] < 2) break;
+        int i = rng() % ans[0] + 1;
+        int j = rng() % ans[0] + 1;
+        if (i != j) {
+            swap(ans[i], ans[j]);
+        }
+    }
+    
+    cur_ans = 0;
+    for (int i = 1; i <= ans[0]; ++i) {
+        int u = (i == 1) ? 0 : ans[i - 1];
+        cur_ans += d[u][ans[i]];
+    }
+    cur_ans += d[ans[ans[0]]][0];
 }
 
 void local_search_with_tabu() {
@@ -184,36 +221,59 @@ void local_search_with_tabu() {
     for (int i = 0; i <= ans[0]; ++ i) {
         best_ans_tabu[i] = ans[i];
     }
-    MX_QUEUE = max(7LL, ans[0] / 2);
+    MX_QUEUE = max(10LL, ans[0] / 2);
     int cnt = 0;
+    no_improve_cnt = 0;
 
-    while (cnt < 10000) {
+    while (cnt < 15000) {
         ++ cnt;
         int op = rng() % 100;
-        if (op < 50) {
-            if (!try_swap_shelves()) continue;
-        } else if (op < 80) {
-            if (!try_remove_shelf()) continue;
+        bool moved = false;
+        
+        if (op < 60) {
+            moved = try_swap_shelves();
+        } else if (op < 85) {
+            moved = try_remove_shelf();
         } else {
-            if (!try_add_shelf()) continue;
+            moved = try_add_shelf();
         }
+        
+        if (!moved) continue;
+        
         if (cur_ans < best_ans) {
             best_ans = cur_ans;
             for (int i = 0; i <= ans[0]; ++ i) {
                 best_ans_tabu[i] = ans[i];
             }
+            no_improve_cnt = 0;
+        } else {
+            no_improve_cnt++;
         }
-        if (cnt % 200 == 0) {
+        
+        if (no_improve_cnt >= 500) {
+            diversify();
+            no_improve_cnt = 0;
+            tabu_set.clear();
+            while (!Q_tabu.empty()) Q_tabu.pop();
+        }
+        
+        if (cnt % 300 == 0) {
             cur_ans = best_ans;
-            for (int i = 0; i <= best_ans_tabu[0]; ++i)
+            for (int i = 0; i <= best_ans_tabu[0]; ++ i)
                 ans[i] = best_ans_tabu[i];
+            memset(cur_q, 0, sizeof(cur_q));
+            memset(vis, 0, sizeof(vis));
+            for (int i = 1; i <= ans[0]; ++i) {
+                vis[ans[i]] = 1;
+                for (int j = 1; j <= n; ++j) {
+                    cur_q[j] += Q[j][ans[i]];
+                }
+            }
         }
     }
-    
 }
 
 void solve(int Test) {
-    srand(time(0));
     cin >> n >> m;
     for (int i = 1; i <= n; ++ i) {
         for (int j = 1; j <= m; ++ j) {
@@ -233,7 +293,6 @@ void solve(int Test) {
     for (int i = 1; i <= best_ans_tabu[0]; ++ i) {
         cout << best_ans_tabu[i] << " ";
     }
-    // cout << "\n" << best_ans << "\n";
 }
 
 signed main() {
@@ -244,10 +303,7 @@ signed main() {
         freopen(Task".out", "w", stdout);
     }
     int test = 1;
-    // cin >> test;
     for (int i = 1; i <= test; ++ i) {
-        // cout << "Case #" << i << ": ";
         solve(i);
     }
 }
-// g++ .\annotshy.cpp -o annotshy.exe -Wall -Wextra -std=c++17

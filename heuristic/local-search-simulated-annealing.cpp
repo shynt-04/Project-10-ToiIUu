@@ -57,23 +57,21 @@ void greedy() {
     best_ans = total_dis;
 }
 
-// local search algorithm
-// simulated annealing
-
 bool accept_worse(int current, int next, double T) {
     if (next <= current) return true;
     double delta = (double)(next - current);
-    if (delta > 5 * T) return false;
     double prob = exp(-delta / T);
     uniform_real_distribution<double> dist(0.0, 1.0);
     return dist(rng) < prob;
 }
 
 void try_swap_shelves() {
-    int i = rng() % ans[0] + 1;
-    int j = rng() % ans[0] + 1;
+    if (ans[0] < 2) return;
+    int i = 1 + rng() % ans[0];
+    int j = 1 + rng() % ans[0];
     if (i == j) return;
     if (i > j) swap(i, j);
+    
     int new_dis = cur_ans;
     int u = (i == 1) ? 0 : ans[i - 1];
     int v = (j == ans[0]) ? 0 : ans[j + 1];
@@ -84,6 +82,7 @@ void try_swap_shelves() {
         new_dis -= d[u][ans[i]] + d[ans[i]][ans[i + 1]] + d[ans[j - 1]][ans[j]] + d[ans[j]][v];
         new_dis += d[u][ans[j]] + d[ans[j]][ans[i + 1]] + d[ans[j - 1]][ans[i]] + d[ans[i]][v];
     }
+    
     if (accept_worse(cur_ans, new_dis, cur_temp)) {
         swap(ans[i], ans[j]);
         cur_ans = new_dis;
@@ -91,7 +90,8 @@ void try_swap_shelves() {
 }
 
 void try_remove_shelf() {
-    int i = rng() % ans[0] + 1;
+    if (ans[0] == 0) return;
+    int i = 1 + rng() % ans[0];
     int new_dis = cur_ans;
     int good_rem = 1;
     for (int j = 1; j <= n; ++ j) {
@@ -115,7 +115,6 @@ void try_remove_shelf() {
         }
         -- ans[0];
         cur_ans = new_dis;
-        return;
     }
 }
 
@@ -158,40 +157,43 @@ void local_search_simulated_annealing() {
     cur_ans = best_ans;
     update_best();
     
-    double T = 0.1 * best_ans;
-    double T_min = 0.001 * best_ans;
-    double alpha = 0.97;
-    int iter_per_temp = 20;
-    int max_iter = 5000;
-    int no_improve = 0;
-    int total_iter = 0;
+    double T = 1.0 * best_ans;
+    double T_min = 0.0001 * best_ans;
+    double alpha = 0.995;
+    int max_iter = 50000;
+    int cnt = 0;
     
-    while (T > T_min && total_iter < max_iter && no_improve < 500) {
+    while (cnt < max_iter && T > T_min) {
         cur_temp = T;
         
-        for (int k = 0; k < iter_per_temp; ++k) {
-            int old_ans = cur_ans;
-            
-            int op = rng() % 100;
-            if (op < 60) {
-                try_swap_shelves();
-            } else if (op < 85) {
-                try_remove_shelf();
-            } else {
-                try_add_shelf();
-            }
-            
-            if (cur_ans < best_ans) {
-                best_ans = cur_ans;
-                update_best();
-                no_improve = 0;
-            } else {
-                no_improve++;
-            }
-            
-            total_iter++;
+        int move_type = rng() % 3;
+        
+        if (move_type == 0) try_swap_shelves();
+        else if (move_type == 1) try_remove_shelf();
+        else try_add_shelf();
+        
+        if (cur_ans < best_ans) {
+            best_ans = cur_ans;
+            update_best();
         }
         
+        if (cnt % 1000 == 0) {
+            cur_ans = best_ans;
+            ans[0] = best_ans_arr[0];
+            for (int i = 1; i <= best_ans_arr[0]; ++ i) {
+                ans[i] = best_ans_arr[i];
+            }
+            memset(cur_q, 0, sizeof(cur_q));
+            memset(vis, 0, sizeof(vis));
+            for (int i = 1; i <= ans[0]; ++i) {
+                vis[ans[i]] = 1;
+                for (int j = 1; j <= n; ++j) {
+                    cur_q[j] += Q[j][ans[i]];
+                }
+            }
+        }
+
+        cnt++;
         T *= alpha;
     }
 }
@@ -226,10 +228,7 @@ signed main() {
         freopen(Task".out", "w", stdout);
     }
     int test = 1;
-    // cin >> test;
     for (int i = 1; i <= test; ++ i) {
-        // cout << "Case #" << i << ": ";
         solve(i);
     }
 }
-// g++ .\annotshy.cpp -o annotshy.exe -Wall -Wextra -std=c++17
