@@ -101,14 +101,14 @@ def MIP_Solver(N, M, Q, d, q):
     for i in range(M + 1):
         U.append(solver.IntVar(1, M, "u[{}]".format(i)))
 
-    greedy_ans = greedy_initial_solution(N, M, Q, d, q)
-    for i in range(M + 1):
-        if i in greedy_ans:
-            solver.Add(Y[i] == 1) 
+    # greedy_ans = greedy_initial_solution(N, M, Q, d, q)
+    # for i in range(M + 1):
+    #     if i in greedy_ans:
+    #         solver.Add(Y[i] == 1) 
 
     # constraints
-    for i in range(1, N + 1):
-        solver.Add(solver.Sum(Q[i - 1][j - 1] * Y[j] for j in range(1, M + 1)) >= q[i - 1])
+    for i in range(N):
+        solver.Add(solver.Sum(Q[i][j - 1] * Y[j] for j in range(1, M + 1)) >= q[i])
 
     for i in range(1, M + 1):
         solver.Add(solver.Sum(X[i][j] for j in range(M + 1) if j != i) == Y[i])
@@ -132,10 +132,9 @@ def MIP_Solver(N, M, Q, d, q):
             obj += d[i][j] * X[i][j]
 
     solver.Minimize(obj)
-    solver.SetTimeLimit(500)
     status = solver.Solve()
 
-    if status == pywraplp.Solver.OPTIMAL or status == pywraplp.Solver.FEASIBLE:
+    if status == pywraplp.Solver.OPTIMAL:
         next_node = [-1] * (M + 1)
         for i in range(0, M + 1):
             for j in range(0, M + 1):
@@ -153,7 +152,7 @@ def MIP_Solver(N, M, Q, d, q):
         ans_route = route
         # print("answer =", int(solver.Objective().Value()))
     else:
-        ans_route = greedy_ans
+        ans_route = greedy_initial_solution(N, M, Q, d, q)
 
     print(len(ans_route) - 1)
     for i in range(0, len(ans_route) - 1):
