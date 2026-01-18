@@ -1,3 +1,4 @@
+// hill climbing
 #include <iostream>
 #include <vector>
 #include <algorithm>
@@ -52,6 +53,28 @@ void greedy() {
 }
 
 // local search algorithm
+
+bool try_2opt() {
+    for (int i = 1; i < ans[0]; ++ i) {
+        for (int j = i + 1; j <= ans[0]; ++ j) {
+            int new_dis = cur_ans;
+            int u = (i == 1) ? 0 : ans[i - 1];
+            int v = (j == ans[0]) ? 0 : ans[j + 1];
+            new_dis -= d[u][ans[i]] + d[ans[j]][v];
+            new_dis += d[u][ans[j]] + d[ans[i]][v];
+            for (int k = i; k < j; ++ k) {
+                new_dis -= d[ans[k]][ans[k + 1]];
+                new_dis += d[ans[k + 1]][ans[k]];
+            }
+            if (new_dis < cur_ans) {
+                reverse(ans + i, ans + j + 1);
+                cur_ans = new_dis;
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
 
 bool try_swap_shelves() {
     for (int i = 1; i <= ans[0]; ++ i) {
@@ -140,6 +163,10 @@ void local_search() {
     
     while (improved) {
         improved = 0;
+        if (try_2opt()) {
+            improved = 1;
+            continue;
+        }
         if (try_swap_shelves()) {
             improved = 1;
             continue;
@@ -176,6 +203,7 @@ void solve(int Test) {
     for (int i = 1; i <= ans[0]; ++ i) {
         cout << ans[i] << " ";
     }
+    // cout << "\n" << cur_ans << "\n";
 }
 
 signed main() {
