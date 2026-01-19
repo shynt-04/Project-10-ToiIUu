@@ -22,7 +22,7 @@ const long long INF_COST = 1e18;
 #define Task "annotshy"
 
 struct BRKGAParams {
-    int population = 200;
+    int population = 400;
     double elite_frac = 0.20;
     double mutant_frac = 0.10;
     double bias = 0.70;
@@ -454,12 +454,10 @@ vector<int> solve_brkga(const vector<vector<int>>& Q, const vector<vector<int>>&
         for (int i = 0; i < offspring_size; ++i) {
             int e_idx = elite_indices[rng() % elite_size];
             int n_idx;
-            if (!non_elite_indices.empty()) {
-                n_idx = non_elite_indices[rng() % non_elite_indices.size()];
-            } else {
-                n_idx = elite_indices[rng() % elite_size];
-            }
-
+            // Cá thể thứ 2 được chọn ngẫu nhiên từ toàn bộ population (elite hoặc non-elite)
+            n_idx = ranked[rng() % pop_size];
+            // Cá thể thứ 2 được chọn ngẫu nhiên từ non-elite
+            // n_idx = non_elite_indices[rng() % non_elite_indices.size()];
             const auto& pA = population[e_idx];
             const auto& pB = population[n_idx];
             vector<double> child(k);
