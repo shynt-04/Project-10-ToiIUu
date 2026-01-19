@@ -19,7 +19,7 @@ int n, m;
 int Q[maxn][maxn];
 int d[maxn][maxn];
 int q[maxn], cur_q[maxn];
-int best_ans = 1e18, time_cnt = 0, cMin = 1e18;
+int best_ans = 1e18;
 int vis[maxn];
 int cur_ans, ans[maxn];
 
@@ -193,7 +193,6 @@ void solve(int Test) {
     for (int i = 0; i <= m; ++ i) {
         for (int j = 0; j <= m; ++ j) {
             cin >> d[i][j];
-            if(d[i][j] > 0) cMin = min(cMin, d[i][j]);
         }
     }
     for (int i = 1; i <= n; ++ i) cin >> q[i];

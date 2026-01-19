@@ -6,6 +6,7 @@
 #include <cmath>
 #include <random>
 #include <limits>
+#include <chrono>
 
 #define MOD 1000000007
 #define Task "annotshy"
@@ -21,13 +22,16 @@ int n, m;
 int Q[maxn][maxn];
 int d[maxn][maxn];
 int q[maxn], cur_q[maxn];
-int best_ans = 1e18, time_cnt = 0, cMin = 1e18;
+int best_ans = 1e18;
 int vis[maxn];
 int cur_ans, ans[maxn], best_ans_arr[maxn];
 float cur_temp;
 
 random_device rd;
 mt19937 rng(rd());
+
+// dat time limit 50s
+double time_limit_sec = 50; 
 
 bool check_stock() {
     for (int i = 1; i <= n; ++ i) {
@@ -178,7 +182,14 @@ void local_search_simulated_annealing() {
     int max_iter = 10000000;
     int cnt = 0;
     
-    while (cnt < max_iter) {
+    auto start_time = chrono::high_resolution_clock::now();
+
+    while (1) {
+
+        auto now = chrono::high_resolution_clock::now();
+        chrono::duration<double> elapsed = now - start_time;
+        if (elapsed.count() > time_limit_sec) break;
+
         cur_temp = T;
         
         int move_type = rng() % 4;
@@ -223,7 +234,6 @@ void solve(int Test) {
     for (int i = 0; i <= m; ++ i) {
         for (int j = 0; j <= m; ++ j) {
             cin >> d[i][j];
-            if(d[i][j] > 0) cMin = min(cMin, d[i][j]);
         }
     }
     for (int i = 1; i <= n; ++ i) cin >> q[i];
@@ -233,6 +243,8 @@ void solve(int Test) {
     for (int i = 1; i <= best_ans_arr[0]; ++ i) {
         cout << best_ans_arr[i] << " ";
     }
+    cout << "\n";
+    cout << best_ans << "\n";
 }
 
 signed main() {

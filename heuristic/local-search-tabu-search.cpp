@@ -8,6 +8,7 @@
 #include <random>
 #include <limits>
 #include <set>
+#include <chrono>
 
 #define MOD 1000000007
 #define Task "annotshy"
@@ -27,12 +28,15 @@ int best_ans = 1e18, time_cnt = 0, cMin = 1e18;
 int vis[maxn];
 int cur_ans, ans[maxn], best_ans_tabu[maxn];
 set<pair<int, pair<int,int>>> tabu_set;
-queue<pair<int, int>> Q_tabu;
+queue<pair<int, pair<int,int>>> Q_tabu;
 int MX_QUEUE = 7;
 int no_improve_cnt = 0;
 
 random_device rd;
 mt19937 rng(rd());
+
+// dat time limit theo giay
+double time_limit_sec = 80;
 
 bool check_stock() {
     for (int i = 1; i <= n; ++ i) {
@@ -64,43 +68,56 @@ void greedy() {
 }
 
 bool try_2opt() {
-    while (!Q_tabu.empty() && Q_tabu.size() > MX_QUEUE) {
-        pair<int, int> p = Q_tabu.front();
-        tabu_set.erase({1, {p.F, p.S}});
-        Q_tabu.pop();
+    int best_new_dis = 1e18;
+    int best_i = -1, best_j = -1;
+    int best_u = -1, best_v = -1;
+    int sample_size = min(50000LL, ans[0] * ans[0]);
+    for (int t = 1; t <= sample_size; ++t) {
+        int i = rng() % ans[0] + 1;
+        int j = rng() % ans[0] + 1;
+        if (i == j) continue;
+        if (i > j) swap(i, j);
+        int u = (i == 1) ? 0 : ans[i - 1];
+        int v = (j == ans[0]) ? 0 : ans[j + 1];
+
+        int new_dis = cur_ans;
+        new_dis -= d[u][ans[i]] + d[ans[j]][v];
+        new_dis += d[u][ans[j]] + d[ans[i]][v];
+
+        for (int k = i; k < j; ++k) {
+            new_dis -= d[ans[k]][ans[k + 1]];
+            new_dis += d[ans[k + 1]][ans[k]];
+        }
+
+        bool is_tabu = tabu_set.count({1, {ans[i], u}}) > 0;
+        is_tabu |= tabu_set.count({1, {ans[j], v}}) > 0;
+        if (is_tabu && new_dis >= best_ans) continue;
+        if (new_dis < best_new_dis) {
+            best_new_dis = new_dis;
+            best_i = i;
+            best_j = j;
+            best_u = u;
+            best_v = v;
+        }
     }
 
-    for (int i = 1; i < ans[0]; ++ i) {
-        for (int j = i + 1; j <= ans[0]; ++ j) {
-            int new_dis = cur_ans;
-            int u = (i == 1) ? 0 : ans[i - 1];
-            int v = (j == ans[0]) ? 0 : ans[j + 1];
-            new_dis -= d[u][ans[i]] + d[ans[j]][v];
-            new_dis += d[u][ans[j]] + d[ans[i]][v];
-            bool is_tabu = tabu_set.count({1, {ans[i], ans[j]}}) > 0;
-            if (is_tabu && new_dis >= best_ans) continue;
-            if (new_dis < cur_ans) {
-                cur_ans = new_dis;
-                tabu_set.insert({1, {ans[i], ans[j]}});
-                Q_tabu.push({ans[i], ans[j]});
-                reverse(ans + i, ans + j + 1);
-                return 1;
-            }
-        }
-    } 
-    return 0;
+    if (best_i == -1) return 0;
+
+    tabu_set.insert({1, {ans[best_i], best_u}});
+    tabu_set.insert({1, {ans[best_j], best_v}});
+    Q_tabu.push({1, {ans[best_i], best_u}});
+    Q_tabu.push({1, {ans[best_j], best_v}});
+
+    reverse(ans + best_i, ans + best_j + 1);
+    cur_ans = best_new_dis;
+
+    return 1;
 }
 
 bool try_swap_shelves() {
     int best_new_dis = 1e18;
     int best_i = -1, best_j = -1;
     int best_a = -1, best_b = -1;
-
-    while (!Q_tabu.empty() && Q_tabu.size() > MX_QUEUE) {
-        pair<int, int> p = Q_tabu.front();
-        tabu_set.erase({2, {p.F, p.S}});
-        Q_tabu.pop();
-    }
 
     int sample_size = min(50000LL, ans[0] * ans[0]);
     
@@ -143,8 +160,8 @@ bool try_swap_shelves() {
     swap(ans[best_i], ans[best_j]);
     cur_ans = best_new_dis;
 
-    tabu_set.insert({2, {best_b, best_a}});
-    Q_tabu.push({best_b, best_a});
+    tabu_set.insert({2, {best_a, best_b}});
+    Q_tabu.push({2, {best_a, best_b}});
 
     return 1;
 }
@@ -167,6 +184,10 @@ bool try_remove_shelf() {
         int v = (i == ans[0]) ? 0 : ans[i + 1];
         new_dis -= d[u][ans[i]] + d[ans[i]][v];
         new_dis += d[u][v];
+
+        bool is_tabu = tabu_set.count({3, {ans[i], 0}}) > 0;
+        if (is_tabu && new_dis >= best_ans) continue;
+
         if (new_dis < best_new_dis) {
             best_new_dis = new_dis;
             best_i = i;
@@ -175,6 +196,9 @@ bool try_remove_shelf() {
     
     if (best_i == -1) return 0;
     
+    tabu_set.insert({4, {ans[best_i], 0}});
+    Q_tabu.push({4, {ans[best_i], 0}});
+
     for (int j = 1; j <= n; ++ j) {
         cur_q[j] -= Q[j][ans[best_i]];
     }
@@ -200,6 +224,8 @@ bool try_add_shelf() {
             int v = (i > ans[0]) ? 0 : ans[i];
             new_dis -= d[u][v];
             new_dis += d[u][shelf] + d[shelf][v];
+            bool is_tabu = tabu_set.count({4, {shelf, 0}}) > 0;
+            if (is_tabu && new_dis >= best_ans) continue;
             if (new_dis < best_new_dis) {
                 best_new_dis = new_dis;
                 best_i = i;
@@ -210,6 +236,9 @@ bool try_add_shelf() {
     
     if (best_i == -1) return 0;
     
+    tabu_set.insert({3, {best_shelf, 0}});
+    Q_tabu.push({3, {best_shelf, 0}});
+
     vis[best_shelf] = 1;
     for (int j = 1; j <= n; ++ j) {
         cur_q[j] += Q[j][best_shelf];
@@ -251,21 +280,34 @@ void local_search_with_tabu() {
     int cnt = 0;
     no_improve_cnt = 0;
 
-    while (cnt < 20000) {
+    auto start_time = chrono::high_resolution_clock::now();
+
+    while (1) {
+
+        auto now = chrono::high_resolution_clock::now();
+        chrono::duration<double> elapsed = now - start_time;
+        if (elapsed.count() > time_limit_sec) break;
+
         ++ cnt;
-        int op = rng() % 100;
+        int op = rng() % 4;
         bool moved = false;
         
-        if (op < 40) {
+        if (op == 0) {
             moved = try_2opt();
-        } else if (op < 65) {
+        } else if (op == 1) {
             moved = try_swap_shelves();
-        } else if (op < 85) {
+        } else if (op == 2) {
             moved = try_remove_shelf();
         } else {
             moved = try_add_shelf();
         }
         
+        while (!Q_tabu.empty() && Q_tabu.size() > MX_QUEUE) {
+            pair<int, pair<int,int>> p = Q_tabu.front();
+            tabu_set.erase(p);
+            Q_tabu.pop();
+        }
+
         if (!moved) continue;
         
         if (cur_ans < best_ans) {
@@ -285,7 +327,7 @@ void local_search_with_tabu() {
             while (!Q_tabu.empty()) Q_tabu.pop();
         }
         
-        if (cnt % 300 == 0) {
+        if (cnt % 1000 == 0) {
             cur_ans = best_ans;
             for (int i = 0; i <= best_ans_tabu[0]; ++ i)
                 ans[i] = best_ans_tabu[i];
@@ -321,6 +363,8 @@ void solve(int Test) {
     for (int i = 1; i <= best_ans_tabu[0]; ++ i) {
         cout << best_ans_tabu[i] << " ";
     }
+    cout << "\n";
+    cout << best_ans << "\n";
 }
 
 signed main() {
