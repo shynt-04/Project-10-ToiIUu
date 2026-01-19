@@ -1,3 +1,4 @@
+// simulated annealing
 #include <iostream>
 #include <vector>
 #include <algorithm>
@@ -65,8 +66,23 @@ bool accept_worse(int current, int next, double T) {
     return dist(rng) < prob;
 }
 
+void try_2opt() {
+    int i = 1 + rng() % ans[0];
+    int j = 1 + rng() % ans[0];
+    if (i > j) swap(i, j);
+    if (i == j || j == i + 1) return;
+    int new_dis = cur_ans;
+    int u = (i == 1) ? 0 : ans[i - 1];
+    int v = (j == ans[0]) ? 0 : ans[j + 1];
+    new_dis -= d[u][ans[i]] + d[ans[j]][v];
+    new_dis += d[u][ans[j]] + d[ans[i]][v];
+    if (accept_worse(cur_ans, new_dis, cur_temp)) {
+        reverse(ans + i, ans + j + 1);
+        cur_ans = new_dis;
+    }
+}
+
 void try_swap_shelves() {
-    if (ans[0] < 2) return;
     int i = 1 + rng() % ans[0];
     int j = 1 + rng() % ans[0];
     if (i == j) return;
@@ -90,7 +106,6 @@ void try_swap_shelves() {
 }
 
 void try_remove_shelf() {
-    if (ans[0] == 0) return;
     int i = 1 + rng() % ans[0];
     int new_dis = cur_ans;
     int good_rem = 1;
@@ -160,16 +175,16 @@ void local_search_simulated_annealing() {
     double T = 1.0 * best_ans;
     double T_min = 0.0001 * best_ans;
     double alpha = 0.995;
-    int max_iter = 50000;
+    int max_iter = 10000000;
     int cnt = 0;
     
-    while (cnt < max_iter && T > T_min) {
+    while (cnt < max_iter) {
         cur_temp = T;
         
-        int move_type = rng() % 3;
-        
-        if (move_type == 0) try_swap_shelves();
+        int move_type = rng() % 4;
+        if (move_type == 0) try_2opt();
         else if (move_type == 1) try_remove_shelf();
+        else if (move_type == 2) try_swap_shelves();
         else try_add_shelf();
         
         if (cur_ans < best_ans) {
