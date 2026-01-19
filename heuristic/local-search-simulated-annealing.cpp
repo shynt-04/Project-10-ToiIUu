@@ -30,8 +30,8 @@ float cur_temp;
 random_device rd;
 mt19937 rng(rd());
 
-// dat time limit 50s
-double time_limit_sec = 50; 
+// dat time limit 80
+double time_limit_sec = 80; 
 
 bool check_stock() {
     for (int i = 1; i <= n; ++ i) {
@@ -176,34 +176,44 @@ void local_search_simulated_annealing() {
     cur_ans = best_ans;
     update_best();
     
-    double T = 1.0 * best_ans;
-    double T_min = 0.0001 * best_ans;
-    double alpha = 0.995;
-    int max_iter = 10000000;
-    int cnt = 0;
+    double T_init = 1.0 * best_ans;
+    double T = T_init;
+    double T_min = 0.001 * best_ans;
     
     auto start_time = chrono::high_resolution_clock::now();
+    int cnt = 0;
+    int no_improve = 0;
+    int iterations_per_temp = 100;
 
     while (1) {
-
         auto now = chrono::high_resolution_clock::now();
         chrono::duration<double> elapsed = now - start_time;
         if (elapsed.count() > time_limit_sec) break;
-
+        
+        double progress = elapsed.count() / time_limit_sec;
+        T = T_init * (1.0 - progress) + T_min * progress;
+        
+        if (T < T_min) T = T_min;
+        
         cur_temp = T;
         
-        int move_type = rng() % 4;
-        if (move_type == 0) try_2opt();
-        else if (move_type == 1) try_remove_shelf();
-        else if (move_type == 2) try_swap_shelves();
-        else try_add_shelf();
+        for (int iter = 0; iter < iterations_per_temp; ++iter) {
+            int move_type = rng() % 4;
+            if (move_type == 0) try_2opt();
+            else if (move_type == 1) try_remove_shelf();
+            else if (move_type == 2) try_swap_shelves();
+            else try_add_shelf();
+        }
         
         if (cur_ans < best_ans) {
             best_ans = cur_ans;
             update_best();
+            no_improve = 0;
+        } else {
+            no_improve++;
         }
         
-        if (cnt % 1000 == 0) {
+        if (no_improve > 50000) {
             cur_ans = best_ans;
             ans[0] = best_ans_arr[0];
             for (int i = 1; i <= best_ans_arr[0]; ++ i) {
@@ -217,10 +227,10 @@ void local_search_simulated_annealing() {
                     cur_q[j] += Q[j][ans[i]];
                 }
             }
+            no_improve = 0;
         }
 
         cnt++;
-        T *= alpha;
     }
 }
 
