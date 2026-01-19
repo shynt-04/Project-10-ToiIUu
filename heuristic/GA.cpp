@@ -27,7 +27,7 @@ struct BRKGAParams {
     double mutant_frac = 0.10;
     double bias = 0.70;
     int max_generations = 250;
-    double time_limit_sec = 6;
+    double time_limit_sec = 60;
     int seed = 0;
     bool two_opt = true;
     int two_opt_max_swaps = 4000;
