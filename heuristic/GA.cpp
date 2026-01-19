@@ -11,6 +11,7 @@
 #include <iomanip>
 #include <set>
 #include <tuple>
+#include <fstream>
 
 using namespace std;
 
@@ -21,19 +22,19 @@ const long long INF_COST = 1e18;
 #define Task "annotshy"
 
 struct BRKGAParams {
-    int population = 120;
+    int population = 200;
     double elite_frac = 0.20;
     double mutant_frac = 0.10;
     double bias = 0.70;
-    int max_generations = 500;
-    double time_limit_sec = 50;
+    int max_generations = 250;
+    double time_limit_sec = 6;
     int seed = 0;
-    int max_candidates = 250;
     bool two_opt = true;
     int two_opt_max_swaps = 4000;
     int elite_local_search = 8;
     int local_search_moves = 800;
     int multi_start = 3;
+    bool is_debug = false;
 };
 
 // --- Logic Functions ---
@@ -302,81 +303,6 @@ vector<int> two_opt(vector<int> route, const vector<vector<int>>& d, int max_swa
     return route;
 }
 
-vector<int> select_candidates(const vector<vector<int>>& Q, const vector<int>& required, int max_candidates) {
-    int n_products = required.size();
-    int m_shelves = Q[0].size();
-    
-    if (max_candidates >= m_shelves) {
-        vector<int> all(m_shelves);
-        iota(all.begin(), all.end(), 1);
-        return all;
-    }
-
-    set<int> top_set;
-    int L = min(40, m_shelves);
-
-    for (int i = 0; i < n_products; ++i) {
-        if (required[i] <= 0) continue;
-        vector<pair<int, int>> pairs;
-        pairs.reserve(m_shelves);
-        for (int j = 0; j < m_shelves; ++j) {
-            pairs.push_back({Q[i][j], j + 1});
-        }
-        // sort descending
-        sort(pairs.rbegin(), pairs.rend());
-
-        for (int t = 0; t < min(L, (int)pairs.size()); ++t) {
-            if (pairs[t].first <= 0) break;
-            top_set.insert(pairs[t].second);
-        }
-    }
-
-    vector<double> weights(n_products);
-    for (int i = 0; i < n_products; ++i) {
-        weights[i] = 1.0 / (required[i] > 0 ? required[i] : 1.0);
-    }
-
-    vector<pair<double, int>> scores;
-    scores.reserve(m_shelves);
-    for (int j = 0; j < m_shelves; ++j) {
-        double s = 0.0;
-        for (int i = 0; i < n_products; ++i) {
-            if (required[i] > 0) {
-                s += Q[i][j] * weights[i];
-            }
-        }
-        scores.push_back({s, j + 1});
-    }
-    sort(scores.rbegin(), scores.rend());
-
-    vector<int> cand(top_set.begin(), top_set.end());
-    sort(cand.begin(), cand.end()); // Deterministic
-
-    for (const auto& kv : scores) {
-        if (top_set.find(kv.second) == top_set.end()) {
-            cand.push_back(kv.second);
-            if ((int)cand.size() >= max_candidates) break;
-        }
-    }
-
-    int K = min((int)max(100, (int)top_set.size()), (int)cand.size());
-    while (true) {
-        // subset = cand[:K]
-        vector<int> subset(cand.begin(), cand.begin() + K);
-        vector<int> collected(n_products, 0);
-        for (int shelf : subset) {
-            for (int i = 0; i < n_products; ++i) {
-                collected[i] += Q[i][shelf - 1];
-            }
-        }
-        
-        if (covers_all(collected, required) || K >= max_candidates || K >= m_shelves) {
-            return subset;
-        }
-        K = min((int)cand.size(), min(max_candidates, K * 2));
-    }
-}
-
 // Returns {cost, route}
 pair<long long, vector<int>> decode(
     const vector<double>& keys, 
@@ -431,7 +357,7 @@ pair<long long, vector<int>> decode(
     return {distance_of_route(route, d), route};
 }
 
-vector<int> solve_brkga(const vector<vector<int>>& Q, const vector<vector<int>>& d, const vector<int>& required, const BRKGAParams& params) {
+vector<int> solve_brkga(const vector<vector<int>>& Q, const vector<vector<int>>& d, const vector<int>& required, const BRKGAParams& params, int run_id, ofstream* log_file) {
     int n_products = required.size();
     int m_shelves = Q[0].size();
 
@@ -446,19 +372,8 @@ vector<int> solve_brkga(const vector<vector<int>>& Q, const vector<vector<int>>&
 
     bool allow_two_opt = is_symmetric_distance(d);
     
-    vector<int> candidates = select_candidates(Q, required, min(params.max_candidates, m_shelves));
-    
-    // Check feasibility of candidates
-    vector<int> collected(n_products, 0);
-    for (int shelf : candidates) {
-        for (int i = 0; i < n_products; ++i) {
-            collected[i] += Q[i][shelf - 1];
-        }
-    }
-    if (!covers_all(collected, required)) {
-        candidates.resize(m_shelves);
-        iota(candidates.begin(), candidates.end(), 1);
-    }
+    vector<int> candidates(m_shelves);
+    iota(candidates.begin(), candidates.end(), 1);
 
     int k = candidates.size();
     mt19937 rng(params.seed);
@@ -570,22 +485,25 @@ vector<int> solve_brkga(const vector<vector<int>>& Q, const vector<vector<int>>&
         }
 
         // Intensify top elites
-        vector<int> ranked2(pop_size);
-        iota(ranked2.begin(), ranked2.end(), 0);
-        sort(ranked2.begin(), ranked2.end(), [&](int a, int b) {
-            return fitness_routes[a].first < fitness_routes[b].first;
-        });
+        // Intensify top elites
+        if (params.is_debug || gen == params.max_generations - 1) {
+            vector<int> ranked2(pop_size);
+            iota(ranked2.begin(), ranked2.end(), 0);
+            sort(ranked2.begin(), ranked2.end(), [&](int a, int b) {
+                return fitness_routes[a].first < fitness_routes[b].first;
+            });
 
-        int limit_intensify = min(params.elite_local_search, pop_size);
-        for (int i = 0; i < limit_intensify; ++i) {
-            auto now2 = chrono::high_resolution_clock::now();
-            chrono::duration<double> el2 = now2 - start_time;
-            if (el2.count() > params.time_limit_sec) break;
+            int limit_intensify = min(params.elite_local_search, pop_size);
+            for (int i = 0; i < limit_intensify; ++i) {
+                auto now2 = chrono::high_resolution_clock::now();
+                chrono::duration<double> el2 = now2 - start_time;
+                if (el2.count() > params.time_limit_sec) break;
 
-            int idx = ranked2[i];
-            auto res = decode(population[idx], candidates, Q, required, d, 
-                             params.two_opt, params.two_opt_max_swaps, true, allow_two_opt, params.local_search_moves);
-            fitness_routes[idx] = res;
+                int idx = ranked2[i];
+                auto res = decode(population[idx], candidates, Q, required, d, 
+                                 params.two_opt, params.two_opt_max_swaps, true, allow_two_opt, params.local_search_moves);
+                fitness_routes[idx] = res;
+            }
         }
 
         // Final best check for this gen
@@ -594,6 +512,11 @@ vector<int> solve_brkga(const vector<vector<int>>& Q, const vector<vector<int>>&
                 best_cost = fr.first;
                 best_route = fr.second;
             }
+        }
+
+        // Log best cost after each generation (only if debug mode)
+        if (log_file) {
+            *log_file << run_id << "," << gen << "," << best_cost << "\n";
         }
     }
 
@@ -608,6 +531,13 @@ vector<int> solve(const vector<vector<int>>& Q, const vector<vector<int>>& d, co
     int runs = max(1, params.multi_start);
     double per_run = max(0.2, params.time_limit_sec / runs);
 
+    // Open log file for convergence data (only if debug mode)
+    ofstream* log_file = nullptr;
+    if (params.is_debug) {
+        log_file = new ofstream("ga_convergence.csv");
+        *log_file << "run_id,generation,best_cost\n";
+    }
+
     for (int r = 0; r < runs; ++r) {
         auto now = chrono::high_resolution_clock::now();
         chrono::duration<double> elapsed = now - start;
@@ -619,13 +549,18 @@ vector<int> solve(const vector<vector<int>>& Q, const vector<vector<int>>& d, co
         run_params.time_limit_sec = min(per_run, remaining);
         run_params.seed = params.seed + 97 * r;
 
-        vector<int> route = solve_brkga(Q, d, required, run_params);
+        vector<int> route = solve_brkga(Q, d, required, run_params, r, log_file);
         long long cost = distance_of_route(route, d);
         
         if (!route.empty() && cost < best_cost) {
             best_cost = cost;
             best_route = route;
         }
+    }
+
+    if (log_file) {
+        log_file->close();
+        delete log_file;
     }
     return best_route;
 }
@@ -665,11 +600,11 @@ int main(int argc, char** argv) {
         } else if (arg == "--gen" && i + 1 < argc) {
             params.max_generations = stoi(argv[i + 1]);
             i += 2;
-        } else if (arg == "--cand" && i + 1 < argc) {
-            params.max_candidates = stoi(argv[i + 1]);
-            i += 2;
         } else if (arg == "--no-2opt") {
             params.two_opt = false;
+            i += 1;
+        } else if (arg == "--no-debug") {
+            params.is_debug = false;
             i += 1;
         } else {
             i += 1;
