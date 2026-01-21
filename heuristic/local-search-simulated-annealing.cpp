@@ -176,61 +176,70 @@ void local_search_simulated_annealing() {
     cur_ans = best_ans;
     update_best();
     
-    double T_init = 1.0 * best_ans;
-    double T = T_init;
-    double T_min = 0.001 * best_ans;
+    double T_init = 100.0;  // FIXED initial temperature
+    double T_min = 0.01;
     
     auto start_time = chrono::high_resolution_clock::now();
-    int cnt = 0;
-    int no_improve = 0;
-    int iterations_per_temp = 100;
-
+    int iterations = 0;
+    int accepts = 0;
+    int improves = 0;
+    
     while (1) {
         auto now = chrono::high_resolution_clock::now();
         chrono::duration<double> elapsed = now - start_time;
         if (elapsed.count() > time_limit_sec) break;
         
         double progress = elapsed.count() / time_limit_sec;
-        T = T_init * (1.0 - progress) + T_min * progress;
-        
-        if (T < T_min) T = T_min;
-        
+        double T = T_init * pow(T_min / T_init, progress);
         cur_temp = T;
         
-        for (int iter = 0; iter < iterations_per_temp; ++iter) {
-            int move_type = rng() % 4;
-            if (move_type == 0) try_2opt();
-            else if (move_type == 1) try_remove_shelf();
-            else if (move_type == 2) try_swap_shelves();
-            else try_add_shelf();
+        int old_ans = cur_ans;
+        
+        int move_type = rng() % 100;
+        if (move_type < 60) {
+            try_2opt(); 
+        } else if (move_type < 75) {
+            try_swap_shelves(); 
+        } else if (move_type < 90) {
+            try_remove_shelf(); 
+        } else {
+            try_add_shelf();  
         }
+        
+        if (cur_ans != old_ans) accepts++;
+        if (cur_ans < old_ans) improves++;
         
         if (cur_ans < best_ans) {
             best_ans = cur_ans;
             update_best();
-            no_improve = 0;
-        } else {
-            no_improve++;
         }
         
-        if (no_improve > 50000) {
-            cur_ans = best_ans;
-            ans[0] = best_ans_arr[0];
-            for (int i = 1; i <= best_ans_arr[0]; ++ i) {
-                ans[i] = best_ans_arr[i];
-            }
-            memset(cur_q, 0, sizeof(cur_q));
-            memset(vis, 0, sizeof(vis));
-            for (int i = 1; i <= ans[0]; ++i) {
-                vis[ans[i]] = 1;
-                for (int j = 1; j <= n; ++j) {
-                    cur_q[j] += Q[j][ans[i]];
+        iterations++;
+        
+        if (iterations % 10000 == 0) {
+            double accept_rate = (double)accepts / 10000;
+            double improve_rate = (double)improves / 10000;
+            
+            if (accept_rate < 0.01 && T > T_min) {
+                cur_ans = best_ans;
+                ans[0] = best_ans_arr[0];
+                for (int i = 1; i <= best_ans_arr[0]; ++i) {
+                    ans[i] = best_ans_arr[i];
                 }
+                memset(cur_q, 0, sizeof(cur_q));
+                memset(vis, 0, sizeof(vis));
+                for (int i = 1; i <= ans[0]; ++i) {
+                    vis[ans[i]] = 1;
+                    for (int j = 1; j <= n; ++j) {
+                        cur_q[j] += Q[j][ans[i]];
+                    }
+                }
+                T = T_init * 0.5;
             }
-            no_improve = 0;
+            
+            accepts = 0;
+            improves = 0;
         }
-
-        cnt++;
     }
 }
 

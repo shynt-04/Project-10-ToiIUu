@@ -289,18 +289,19 @@ void local_search_with_tabu() {
         if (elapsed.count() > time_limit_sec) break;
 
         ++ cnt;
-        int op = rng() % 4;
+        int op = rng() % 100;
         bool moved = false;
         
-        if (op == 0) {
+        if (op < 60) {
             moved = try_2opt();
-        } else if (op == 1) {
+        } else if (op < 75) {
             moved = try_swap_shelves();
-        } else if (op == 2) {
+        } else if (op < 90) {
             moved = try_remove_shelf();
         } else {
             moved = try_add_shelf();
         }
+        
         
         while (!Q_tabu.empty() && Q_tabu.size() > MX_QUEUE) {
             pair<int, pair<int,int>> p = Q_tabu.front();
