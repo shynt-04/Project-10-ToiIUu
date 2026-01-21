@@ -1,17 +1,8 @@
-#include <iostream>
-#include <vector>
-#include <algorithm>
-#include <cstring>
-#include <cmath>
-
-#define MOD 1000000007
-#define Task "annotshy"
-#define F first
-#define S second
+#include <bits/stdc++.h>
+const long long inf = 1e9 +7;
+const int maxN = 1e5 +7;
 #define int long long
-
 using namespace std;
-
 const int maxn = 1005;
 
 int n, m;
@@ -22,8 +13,8 @@ int best_ans = 1e18, time_cnt = 0, cMin = 1e18;
 int vis[maxn];
 int cur_ans[maxn], ans[maxn];
 
-bool check_stock() {
-    for (int i = 1; i <= n; ++ i) {
+bool check_stock(){
+    for (int i = 1; i<= n; i++){
         if (cur_q[i] < q[i]) return 0;
     }
     return 1;
@@ -51,46 +42,42 @@ void greedy() {
     best_ans = total_dis;
 }
 
-// bnb -> dung dap an cua greedy lam bound
-void backtrack(int pos, int total_dis = 0) {
-    if (check_stock()) {
-        if (total_dis + d[cur_ans[pos - 1]][0] < best_ans) {
-            best_ans = total_dis + d[cur_ans[pos - 1]][0];
-            for (int i = 1; i <= pos - 1; ++ i) {
+void backtrack(int pos, int total_dis = 0){
+    if (check_stock()){
+        if (total_dis + d[cur_ans[pos-1]][0] < best_ans){
+            best_ans = total_dis + d[cur_ans[pos-1]][0];
+            for (int i = 1; i<= pos -1; i++){
                 ans[i] = cur_ans[i];
             }
-            ans[0] = pos - 1;
+            ans[0] = pos-1;
         }
         return;
     }
     time_cnt ++;
-    if (time_cnt > 1e7) return;
+    if (time_cnt > 1e9) return;
     if (pos > m) return;
-    if (total_dis + cMin * (((n * m - pos) / m) + 1)  >= best_ans) return;
-    for (int i = 1; i <= m; ++ i) {
+    if (total_dis + cMin *(m-pos +1) >= best_ans) return;
+    for (int i =1; i<= m; i++){
         if (vis[i]) continue;
         vis[i] = 1;
         int last_id = 0;
-        if (pos > 1) last_id = cur_ans[pos - 1];
+        if (pos > 1) last_id = cur_ans[pos-1];
         total_dis += d[last_id][i];
         cur_ans[pos] = i;
-        for (int u = 1; u <= n; ++ u) {
+        for (int u = 1; u<=n; u++){
             cur_q[u] += Q[u][i];
         }
-        // bound
-        if (total_dis < best_ans) {
+        if (total_dis < best_ans){
             backtrack(pos + 1, total_dis);
         }
-        for (int u = 1; u <= n; ++ u) {
+        for (int u =1 ; u <= n; u++){
             cur_q[u] -= Q[u][i];
         }
         total_dis -= d[last_id][i];
         vis[i] = 0;
     }
-
 }
-
-void solve(int Test) {
+void solve(){
     cin >> n >> m;
     for (int i = 1; i <= n; ++ i) {
         for (int j = 1; j <= m; ++ j) {
@@ -113,19 +100,15 @@ void solve(int Test) {
         cout << ans[i] << " ";
     }
 }
-
-signed main() {
+signed main()
+{
     ios_base::sync_with_stdio(0);
-    cin.tie(0), cout.tie(0);
-    if (fopen(Task".inp", "r")) {
-        freopen(Task".inp", "r", stdin);
-        freopen(Task".out", "w", stdout);
-    }
-    int test = 1;
-    // cin >> test;
-    for (int i = 1; i <= test; ++ i) {
-        // cout << "Case #" << i << ": ";
-        solve(i);
-    }
+    cin.tie(0);
+    cout.tie(0);
+    int t;
+    //cin >> t;
+    t = 1;
+    while (t--)
+        solve();
+    return 0;
 }
-// g++ .\annotshy.cpp -o annotshy.exe -Wall -Wextra -std=c++17
