@@ -17,7 +17,6 @@ int q[maxn], cur_q[maxn];
 int vis[maxn];
 vector<int> ans;
 
-// kiểm tra xem kệ 'shelf_idx' có món hàng nào mình đang thiếu không
 bool is_useful(int shelf_idx) {
     for (int i = 1; i <= n; ++i) {
         if (cur_q[i] < q[i] && Q[i][shelf_idx] > 0) {
@@ -40,7 +39,6 @@ void greedy_smart_nn() {
     while (!check_stock()) {
         int best = -1;
         
-        // Tìm kệ gần nhất có ích
         for (int i = 1; i <= m; ++ i) {
             if (vis[i]) continue;
             if (!is_useful(i)) continue; 
@@ -49,12 +47,11 @@ void greedy_smart_nn() {
             }
         }
         
-        if (best == -1) break; // Không còn đường đi
+        if (best == -1) break;
 
         vis[best] = 1;
         total_dis += d[start][best];
         
-        // Cập nhật kho hàng
         for (int i = 1; i <= n; ++ i) {
             cur_q[i] += Q[i][best]; 
         }

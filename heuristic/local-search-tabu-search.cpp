@@ -35,8 +35,8 @@ int no_improve_cnt = 0;
 random_device rd;
 mt19937 rng(rd());
 
-// dat time limit theo giay
-double time_limit_sec = 80;
+// dat time limit
+double time_limit_sec = 60;
 
 bool check_stock() {
     for (int i = 1; i <= n; ++ i) {

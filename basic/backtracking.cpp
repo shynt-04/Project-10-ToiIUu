@@ -1,7 +1,7 @@
 #include <bits/stdc++.h>
 
 #define MOD 1000000007
-#define Task "annotshy"
+#define Task ""
 #define F first
 #define S second
 #define int long long
@@ -33,8 +33,10 @@ void calc(int pos, vector<int> &g, int total_dis = 0) {
         }
         return;
     }
+    
     time_cnt ++;
-    if (time_cnt > 1e7) return;
+    if (time_cnt > 1e8) return;
+
     if (pos > m) return;
     for (int i = 1; i <= m; ++ i) {
         if (vis[i]) continue;
@@ -89,4 +91,3 @@ signed main() {
         solve(i);
     }
 }
-// g++ .\annotshy.cpp -o annotshy.exe -Wall -Wextra -std=c++17
